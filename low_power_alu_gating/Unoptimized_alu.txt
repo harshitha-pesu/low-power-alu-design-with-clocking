@@ -1,0 +1,116 @@
+Unoptimized ALU design –
+
+
+
+Design code –
+ 
+`timescale 1ns/1ps
+module alu (
+    input wire clk,
+    input wire rst,
+    input wire enable,
+    input wire [3:0] A,
+    input wire [3:0] B,
+    input wire [2:0] opcode,
+    output reg [3:0] result,
+    output reg carry,
+    output reg zero
+);
+
+    // Registered inputs
+    reg [3:0] A_reg, B_reg;
+    reg [2:0] opcode_reg;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            A_reg <= 4'd0;
+            B_reg <= 4'd0;
+            opcode_reg <= 3'd0;
+        end else if (enable) begin
+            A_reg <= A;
+            B_reg <= B;
+            opcode_reg <= opcode;
+        end
+    end
+
+    // ALU Operation
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            result <= 4'd0;
+            carry <= 1'b0;
+            zero <= 1'b0;
+        end else if (enable) begin
+            carry <= 1'b0;
+            case (opcode_reg)
+                3'b000: {carry, result} <= A_reg + B_reg;   // ADD
+                3'b001: {carry, result} <= A_reg - B_reg;   // SUB
+                3'b010: result <= A_reg & B_reg;            // AND
+                3'b011: result <= A_reg | B_reg;            // OR
+                3'b100: result <= A_reg ^ B_reg;            // XOR
+                3'b101: result <= A_reg << 1;               // SHL
+                3'b110: result <= A_reg >> 1;               // SHR
+                3'b111: result <= ~A_reg;                   // NOT
+                default: result <= 4'd0;
+            endcase
+            zero <= (result == 4'd0);
+        end
+    end
+endmodule
+
+
+ 
+Testbench code -
+
+
+`timescale 1ns/1ps
+module alu_tb;
+    reg clk, rst, enable;
+    reg [3:0] A, B;
+    reg [2:0] opcode;
+    wire [3:0] result;
+    wire carry, zero;
+
+    // Instantiate DUT
+    alu_top uut (
+        .clk(clk),
+        .rst(rst),
+        .enable(enable),
+        .A(A),
+        .B(B),
+        .opcode(opcode),
+        .result(result),
+        .carry(carry),
+        .zero(zero)
+    );
+
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;  // 10ns clock
+    end
+
+    // Stimulus
+    initial begin
+        $dumpfile("alu_waveform.vcd");
+        $dumpvars(0, alu_tb);
+
+        rst = 1; enable = 0; A = 0; B = 0; opcode = 3'b000;
+        #12 rst = 0;
+
+        enable = 1;
+
+        A = 4'd5; B = 4'd3; opcode = 3'b000; #20;  // ADD
+        A = 4'd7; B = 4'd2; opcode = 3'b001; #20;  // SUB
+        A = 4'd12; B = 4'd10; opcode = 3'b010; #20; // AND
+        A = 4'd6; B = 4'd9; opcode = 3'b011; #20;  // OR
+        A = 4'd7; B = 4'd5; opcode = 3'b100; #20;  // XOR
+        A = 4'd3; opcode = 3'b101; #20;            // SHL
+        A = 4'd8; opcode = 3'b110; #20;            // SHR
+        A = 4'd4; opcode = 3'b111; #20;            // NOT
+
+        // Test with enable OFF
+        enable = 0;
+        A = 4'd9; B = 4'd9; opcode = 3'b000; #20;
+
+        #20 $finish;
+    end
+endmodule
